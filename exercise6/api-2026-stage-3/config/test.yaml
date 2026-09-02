@@ -1,0 +1,8 @@
+extends:
+  - ./default.yaml
+
+db:
+  dbname: testdb
+
+debug:
+  problem_details: false

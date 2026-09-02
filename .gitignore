@@ -1,0 +1,24 @@
+.DS_Store
+node_modules/
+dist/
+coverage/
+*.log
+*.tsbuildinfo
+*.tar
+*.tar.gz
+*.tar.xz
+.env
+.env.*
+!.env.example
+
+# Local cluster credentials and deployment secrets
+/discovery.yaml
+/k8s/secret.yaml
+
+# Earlier coursework and unpacked submission copies
+/exercise-1/
+/exercise-2/
+/exercise-3/
+/exercise4/
+/exercise5/
+/exercise7/react-2026-stage-2/korourke-react-stage-2/
