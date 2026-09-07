@@ -23,6 +23,7 @@ import {
   deleteUser,
   deleteAllUsers,
 } from '../../db/users.js';
+import { USER_CACHE_PREFIX, userCacheKey } from '../../lib/cache.js';
 /* Functions imported from database layer
 import {
   countUsers,
@@ -278,12 +279,25 @@ const userapi: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
         throw fastify.httpErrors.forbidden('access denied');
       }
 
+      const cacheKey = userCacheKey(id);
+      const cachedUser = await fastify.cache.getJSON<{
+        id: number;
+        username: string;
+        fullname: string;
+        email: string;
+        admin: boolean;
+        createdAt: Date;
+      }>(cacheKey);
+      if (cachedUser) {
+        return cachedUser;
+      }
+
       const userRecord = await findUserById(id);
       if (!userRecord) {
         throw fastify.httpErrors.notFound('user not found');
       }
 
-      return {
+      const payload = {
         id: userRecord.id,
         username: userRecord.username,
         fullname: userRecord.fullname,
@@ -291,6 +305,8 @@ const userapi: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
         admin: userRecord.admin,
         createdAt: userRecord.createdAt,
       };
+      await fastify.cache.setJSON(cacheKey, payload);
+      return payload;
     },
   );
 
@@ -541,6 +557,7 @@ const userapi: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
         }
       }
 
+      await fastify.cache.del(userCacheKey(id));
       return { message: 'user updated' };
     },
   );
@@ -577,6 +594,7 @@ const userapi: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
         throw fastify.httpErrors.notFound('user not found');
       }
 
+      await fastify.cache.del(userCacheKey(id));
       return { message: 'user deleted' };
     },
   );
@@ -589,6 +607,7 @@ const userapi: FastifyPluginAsync = async (fastify, _opts): Promise<void> => {
     },
     async (_req, _res) => {
       await deleteAllUsers();
+      await fastify.cache.deleteByPrefix(USER_CACHE_PREFIX);
       return { message: 'user database deleted' };
     },
   );

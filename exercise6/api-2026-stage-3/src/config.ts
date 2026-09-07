@@ -11,6 +11,14 @@ export const DbConfigSchema = z.object({
   dbname: z.string().min(1).optional(),
 });
 
+export const RedisConfigSchema = z.object({
+  host: z.string().min(1).default('127.0.0.1'),
+  port: z.coerce.number().int().positive().default(6379),
+  db: z.coerce.number().int().min(0).default(0),
+  password: z.string().optional(),
+  cache_ttl_seconds: z.coerce.number().int().positive().default(60),
+});
+
 const ConfigSchema = z.object({
   auth: z.object({
     access_token_expiration: z.coerce
@@ -26,10 +34,26 @@ const ConfigSchema = z.object({
     bcrypt_salt_rounds: z.coerce.number().int().min(4).max(14).default(10),
   }),
   db: DbConfigSchema,
+  redis: RedisConfigSchema.default(() => ({
+    host: '127.0.0.1',
+    port: 6379,
+    db: 0,
+    cache_ttl_seconds: 60,
+  })),
   routes: z.object({
     api_prefix: z.string().min(1).startsWith('/').default('/api'),
     user_prefix: z.string().min(1).startsWith('/').default('/user'),
   }),
+  runtime: z
+    .object({
+      replica_id: z
+        .string()
+        .min(1)
+        .default(process.env.HOSTNAME ?? 'local'),
+    })
+    .default(() => ({
+      replica_id: process.env.HOSTNAME ?? 'local',
+    })),
   debug: z
     .object({
       problem_details: z.coerce.boolean().default(false),
@@ -52,7 +76,15 @@ export async function getConfig(): Promise<AppConfig> {
     dotenv: true,
   });
 
-  return ConfigSchema.parse(config);
+  const runtimeReplicaId = process.env.REPLICA_ID ?? process.env.HOSTNAME;
+
+  return ConfigSchema.parse({
+    ...config,
+    runtime: {
+      ...(config.runtime ?? {}),
+      replica_id: runtimeReplicaId ?? config.runtime?.replica_id,
+    },
+  });
 }
 
 export const config = await getConfig();

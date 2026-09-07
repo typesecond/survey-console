@@ -14,6 +14,7 @@ import {
   findUserVote,
   getVoteResults,
 } from '../../db/questions.js';
+import { questionResultsCacheKey } from '../../lib/cache.js';
 /* Functions imported from database layer
 import {
   countQuestions,
@@ -295,6 +296,7 @@ const questionapi: FastifyPluginAsync = async (
           throw fastify.httpErrors.notFound('question not found');
         }
       }
+      await fastify.cache.del(questionResultsCacheKey(req.params.id));
       return { message: 'question updated' };
     },
   );
@@ -319,6 +321,7 @@ const questionapi: FastifyPluginAsync = async (
       if (result.isErr) {
         throw fastify.httpErrors.notFound('question not found');
       }
+      await fastify.cache.del(questionResultsCacheKey(req.params.id));
       return { message: 'question deleted' };
     },
   );
@@ -360,6 +363,12 @@ const questionapi: FastifyPluginAsync = async (
           throw fastify.httpErrors.badRequest('invalid choice');
         }
       }
+      const latestResults = await getVoteResults(req.params.id);
+      await fastify.cache.setJSON(
+        questionResultsCacheKey(req.params.id),
+        latestResults,
+      );
+      await fastify.broadcastQuestionResults(req.params.id, latestResults);
       return { message: 'vote recorded' };
     },
   );
@@ -413,7 +422,18 @@ const questionapi: FastifyPluginAsync = async (
       /* Implement this.
        * Could use getVoteResults
        */
-      return getVoteResults(req.params.id);
+      const cacheKey = questionResultsCacheKey(req.params.id);
+      const cachedResults =
+        await fastify.cache.getJSON<Array<{ choice: number; count: number }>>(
+          cacheKey,
+        );
+      if (cachedResults) {
+        return cachedResults;
+      }
+
+      const results = await getVoteResults(req.params.id);
+      await fastify.cache.setJSON(cacheKey, results);
+      return results;
     },
   );
 };
