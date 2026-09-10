@@ -1,6 +1,8 @@
 /* eslint-disable react-refresh/only-export-components */
+import { startTransition, useEffect, useState } from 'react';
 import { Link, useLoaderData } from 'react-router';
 import type { LoaderFunctionArgs } from 'react-router';
+import { io } from 'socket.io-client';
 
 import {
   parseQuestionId,
@@ -14,6 +16,13 @@ import {
 type ResultsLoaderData = {
   question: QuestionDetail;
   results: VoteResult[];
+};
+
+type LiveResultsPayload = {
+  questionId: number;
+  results: VoteResult[];
+  replicaId: string;
+  emittedAt: string;
 };
 
 export async function loader({
@@ -59,10 +68,87 @@ export async function loader({
 
 export default function QuestionResultsPage() {
   const { question, results } = useLoaderData() as ResultsLoaderData;
+  const [liveUpdate, setLiveUpdate] = useState<LiveResultsPayload | null>(null);
+
+  useEffect(() => {
+    const socket = io({
+      path: '/socket.io',
+      withCredentials: true,
+    });
+
+    socket.on('connect', () => {
+      socket.emit('question-results:subscribe', question.id);
+    });
+
+    socket.on(
+      'question-results:update',
+      (payload: LiveResultsPayload | undefined) => {
+        if (!payload || payload.questionId !== question.id) {
+          return;
+        }
+
+        startTransition(() => {
+          setLiveUpdate(payload);
+        });
+      },
+    );
+
+    return () => {
+      socket.emit('question-results:unsubscribe', question.id);
+      socket.close();
+    };
+  }, [question.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function refreshResults() {
+      const result = await requestJSON<VoteResult[]>({
+        url: `/api/question/${question.id}/results`,
+        authenticated: true,
+      });
+
+      if (cancelled || result.isErr) {
+        return;
+      }
+
+      startTransition(() => {
+        setLiveUpdate({
+          questionId: question.id,
+          results: result.value,
+          replicaId: 'poll',
+          emittedAt: new Date().toISOString(),
+        });
+      });
+    }
+
+    const intervalId = window.setInterval(() => {
+      void refreshResults();
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [question.id]);
+
+  const displayedResults =
+    liveUpdate?.questionId === question.id ? liveUpdate.results : results;
+  const liveStatus =
+    liveUpdate?.questionId === question.id
+      ? {
+          replicaId: liveUpdate.replicaId,
+          emittedAt: liveUpdate.emittedAt,
+        }
+      : null;
+
   const counts = new Map(
-    results.map((result) => [result.choice, result.count]),
+    displayedResults.map((result) => [result.choice, result.count]),
   );
-  const totalVotes = results.reduce((sum, result) => sum + result.count, 0);
+  const totalVotes = displayedResults.reduce(
+    (sum, result) => sum + result.count,
+    0,
+  );
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -98,6 +184,16 @@ export default function QuestionResultsPage() {
             {question.choices.length}
           </div>
         </div>
+      </div>
+
+      <div className="alert alert-info">
+        Live updates are active for this question.
+        {liveStatus ? (
+          <span className="ml-2 text-sm">
+            Last update from {liveStatus.replicaId} at{' '}
+            {new Date(liveStatus.emittedAt).toLocaleTimeString()}.
+          </span>
+        ) : null}
       </div>
 
       <section className="space-y-4 rounded-box bg-base-100 p-6 shadow-sm">
