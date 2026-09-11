@@ -13,6 +13,8 @@ import {
   insertVote,
   findUserVote,
   getVoteResults,
+  getQuestionSimilarityGraph,
+  getAnswerChoiceAffinityGraph,
 } from '../../db/questions.js';
 import { questionResultsCacheKey } from '../../lib/cache.js';
 /* Functions imported from database layer
@@ -122,6 +124,118 @@ const messageSchema = {
   additionalProperties: false,
 };
 
+const questionSimilarityGraphSchema = {
+  type: 'object',
+  properties: {
+    nodes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          label: { type: 'string' },
+          description: { type: 'string' },
+          voteCount: { type: 'integer' },
+          choiceCount: { type: 'integer' },
+        },
+        required: ['id', 'label', 'description', 'voteCount', 'choiceCount'],
+        additionalProperties: false,
+      },
+    },
+    edges: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          source: { type: 'integer' },
+          target: { type: 'integer' },
+          sharedVoters: { type: 'integer' },
+          sharedVoterRatio: { type: 'number' },
+          distributionSimilarity: { type: 'number' },
+          weight: { type: 'number' },
+        },
+        required: [
+          'source',
+          'target',
+          'sharedVoters',
+          'sharedVoterRatio',
+          'distributionSimilarity',
+          'weight',
+        ],
+        additionalProperties: false,
+      },
+    },
+    stats: {
+      type: 'object',
+      properties: {
+        questionCount: { type: 'integer' },
+        edgeCount: { type: 'integer' },
+        maxVotes: { type: 'integer' },
+      },
+      required: ['questionCount', 'edgeCount', 'maxVotes'],
+      additionalProperties: false,
+    },
+  },
+  required: ['nodes', 'edges', 'stats'],
+  additionalProperties: false,
+};
+
+const answerChoiceAffinityGraphSchema = {
+  type: 'object',
+  properties: {
+    nodes: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          id: { type: 'integer' },
+          label: { type: 'string' },
+          questionId: { type: 'integer' },
+          questionLabel: { type: 'string' },
+          voteCount: { type: 'integer' },
+        },
+        required: ['id', 'label', 'questionId', 'questionLabel', 'voteCount'],
+        additionalProperties: false,
+      },
+    },
+    edges: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          source: { type: 'integer' },
+          target: { type: 'integer' },
+          sharedVoters: { type: 'integer' },
+          affinity: { type: 'number' },
+          contextSimilarity: { type: 'number' },
+          weight: { type: 'number' },
+        },
+        required: [
+          'source',
+          'target',
+          'sharedVoters',
+          'affinity',
+          'contextSimilarity',
+          'weight',
+        ],
+        additionalProperties: false,
+      },
+    },
+    stats: {
+      type: 'object',
+      properties: {
+        choiceCount: { type: 'integer' },
+        edgeCount: { type: 'integer' },
+        maxVotes: { type: 'integer' },
+      },
+      required: ['choiceCount', 'edgeCount', 'maxVotes'],
+      additionalProperties: false,
+    },
+  },
+  required: ['nodes', 'edges', 'stats'],
+  additionalProperties: false,
+};
+
 const voteRequestSchema = {
   body: {
     type: 'object',
@@ -212,6 +326,32 @@ const questionapi: FastifyPluginAsync = async (
       res.header('Location', `${req.url}/${created.id}`);
       return { id: created.id, message: 'question created' };
     },
+  );
+
+  fastify.get(
+    '/graph/similarity',
+    {
+      schema: {
+        response: {
+          200: questionSimilarityGraphSchema,
+        },
+      },
+      preHandler: [fastify.mustbeauthenticated],
+    },
+    async () => getQuestionSimilarityGraph(),
+  );
+
+  fastify.get(
+    '/graph/affinity',
+    {
+      schema: {
+        response: {
+          200: answerChoiceAffinityGraphSchema,
+        },
+      },
+      preHandler: [fastify.mustbeauthenticated],
+    },
+    async () => getAnswerChoiceAffinityGraph(),
   );
 
   /* Get one question.
