@@ -55,6 +55,60 @@ export type VoteResult = {
   count: number;
 };
 
+export type QuestionGraphNode = {
+  id: number;
+  label: string;
+  description: string;
+  voteCount: number;
+  choiceCount: number;
+};
+
+export type QuestionGraphEdge = {
+  source: number;
+  target: number;
+  sharedVoters: number;
+  sharedVoterRatio: number;
+  distributionSimilarity: number;
+  weight: number;
+};
+
+export type QuestionSimilarityGraph = {
+  nodes: QuestionGraphNode[];
+  edges: QuestionGraphEdge[];
+  stats: {
+    questionCount: number;
+    edgeCount: number;
+    maxVotes: number;
+  };
+};
+
+export type AnswerChoiceGraphNode = {
+  id: number;
+  label: string;
+  questionId: number;
+  questionLabel: string;
+  voteCount: number;
+};
+
+export type AnswerChoiceGraphEdge = {
+  source: number;
+  target: number;
+  sharedVoters: number;
+  affinity: number;
+  contextSimilarity: number;
+  weight: number;
+};
+
+export type AnswerChoiceAffinityGraph = {
+  nodes: AnswerChoiceGraphNode[];
+  edges: AnswerChoiceGraphEdge[];
+  stats: {
+    choiceCount: number;
+    edgeCount: number;
+    maxVotes: number;
+  };
+};
+
 export type ApiError = {
   status: number;
   message: string;
