@@ -5,6 +5,9 @@ import { createBrowserRouter, Navigate } from 'react-router';
 import { RouterProvider } from 'react-router/dom';
 
 import App, { rootLoader } from './App';
+import InsightsGraphPage, {
+  loader as insightsGraphLoader,
+} from './pages/InsightsGraphPage';
 import Login, {
   action as loginAction,
   loader as loginLoader,
@@ -93,6 +96,11 @@ const router = createBrowserRouter([
         path: 'questions/:id/results',
         loader: questionResultsLoader,
         Component: QuestionResultsPage,
+      },
+      {
+        path: 'insights',
+        loader: insightsGraphLoader,
+        Component: InsightsGraphPage,
       },
     ],
   },

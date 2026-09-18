@@ -24,6 +24,12 @@ const navItems: NavItem[] = [
     loggedinonly: true,
   },
   {
+    id: 'insights',
+    label: 'Insights',
+    to: '/insights',
+    loggedinonly: true,
+  },
+  {
     id: 'login',
     label: 'Login',
     to: '/login',
