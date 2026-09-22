@@ -1,0 +1,9 @@
+namespace: 3754-app
+
+resources:
+  - secret.yaml
+  - postgres.yaml
+  - redis.yaml
+  - backend.yaml
+  - frontend.yaml
+  - ingress.yaml
