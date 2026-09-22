@@ -1,0 +1,51 @@
+services:
+  frontend:
+    build:
+      context: ./exercise7/react-2026-stage-2
+    depends_on:
+      backend:
+        condition: service_started
+    ports:
+      - '8080:80'
+
+  backend:
+    build:
+      context: ./exercise6/api-2026-stage-3
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./exercise6/api-2026-stage-3/config/production.yaml:/app/config/production.yaml:ro
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: appdb
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: appsecret
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U appuser -d appdb']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+
+volumes:
+  postgres-data:
+  redis-data:
